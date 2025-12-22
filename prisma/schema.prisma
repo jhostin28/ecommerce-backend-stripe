@@ -1,0 +1,79 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  address   String
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  price       Decimal
+  description String?
+  category    String
+  stock       Int
+  imageUrl    String
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+
+model Order {
+  id              Int          @id @default(autoincrement())
+  userId          Int
+  user            User         @relation(fields: [userId], references: [id])
+  status          OrderStatus
+  totalAmount     Decimal
+  shippingAddress String
+  items           OrderItem[]
+  payment         Payment?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  productId Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Decimal
+}
+
+
+model Payment {
+  id                      Int            @id @default(autoincrement())
+  orderId                 Int            @unique
+  order                   Order          @relation(fields: [orderId], references: [id])
+  status                  PaymentStatus
+  amount                  Decimal
+  stripePaymentIntentId   String
+  createdAt               DateTime       @default(now())
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
