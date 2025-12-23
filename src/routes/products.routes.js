@@ -1,26 +1,38 @@
-// Importamos Express
-const express = require("express")
+// Log para confirmar que el archivo se carga
+console.log("✅ products.routes.js cargado");
 
-// Creamos el router
-const router = express.Router()
+// Importamos Express usando ES Modules
+import express from 'express';
 
 // Importamos el controller de productos
-const productsController = require("../controllers/products.controller")
+import productsController from '../controllers/products.controller.js';
 
-// Importamos el middleware de autenticación
-const authMiddleware = require("../middlewares/auth.middleware")
+// Importamos el middleware de autenticación JWT
+import authMiddleware from '../middlewares/auth.middleware.js';
 
-// Obtener todos los productos
-router.get("/", productsController.getAllProducts)
+// Creamos el router de Express
+const router = express.Router();
 
-// Crear un producto
-router.post("/", productsController.createProduct)
+// GET /products
+// Obtener todos los productos (público)
+router.get('/', productsController.getAllProducts);
 
+// POST /products
+// Crear un producto (por ahora sin protección)
+router.post('/', productsController.createProduct);
+
+// PUT /products/:id
 // Editar un producto por ID
-router.put("/:id", productsController.updateProduct)
+router.put('/:id', productsController.updateProduct);
 
-// 🔐 Eliminar producto (ruta protegida)
-router.delete("/:id", authMiddleware, productsController.deleteProduct)
+// DELETE /products/:id
+// Elimina un producto (requiere autenticación)
+router.delete(
+  '/:id',
+  authMiddleware,
+  productsController.deleteProduct
+);
 
-// Exportamos las rutas (SIEMPRE AL FINAL)
-module.exports = router
+
+// Exportamos el router como default (CLAVE)
+export default router;

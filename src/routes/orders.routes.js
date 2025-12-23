@@ -1,21 +1,23 @@
-console.log("✅ orders.routes.js cargado")
+// Log para confirmar que el archivo se carga
+console.log("✅ orders.routes.js cargado");
 
-// Importamos Express
-const express = require("express")
+// Importamos Express usando ES Modules
+import express from 'express';
 
-// Creamos router
-const router = express.Router()
+// Importamos el controller de orders (ES Modules)
+import ordersController from '../controllers/orders.controller.js';
 
-// Importamos el controller de orders
-const ordersController = require("../controllers/orders.controller")
+// Importamos el middleware JWT (ES Modules)
+import authMiddleware from '../middlewares/auth.middleware.js';
 
-// Importamos middleware JWT
-const authMiddleware = require("../middlewares/auth.middleware")
+// Creamos el router de Express
+const router = express.Router();
 
 // POST /orders → crear orden (usuario autenticado)
-router.post("/", authMiddleware, ordersController.createOrder)
+router.post('/', authMiddleware, ordersController.createOrder);
 
 // GET /orders → ver órdenes del usuario logueado
-router.get("/", authMiddleware, ordersController.getMyOrders)
+router.get('/', authMiddleware, ordersController.getMyOrders);
 
-module.exports = router
+// Exportamos el router como default (CLAVE)
+export default router;

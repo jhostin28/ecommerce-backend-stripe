@@ -1,17 +1,22 @@
-// Importamos Express
-const express = require("express")
+// Log para confirmar que el archivo se carga correctamente
+console.log("✅ users.routes.js cargado");
 
-// Creamos el router
-const router = express.Router()
+// Importamos Express usando ES Modules
+import express from 'express';
 
-// Importamos el controller de users
-const usersController = require("../controllers/users.controller")
+// Importamos el controller de usuarios
+import usersController from '../controllers/users.controller.js';
 
-// POST /users/register → registrar usuario
-router.post("/register", usersController.registerUser)
+// Creamos el router de Express
+const router = express.Router();
 
-// POST /users/login → login de usuario
-router.post("/login", usersController.loginUser)
+// POST /users/register
+// Registra un nuevo usuario
+router.post('/register', usersController.registerUser);
 
-// Exportamos las rutas
-module.exports = router
+// POST /users/login
+// Autentica un usuario y devuelve un JWT
+router.post('/login', usersController.loginUser);
+
+// Exportamos el router como default (CLAVE para ES Modules)
+export default router;

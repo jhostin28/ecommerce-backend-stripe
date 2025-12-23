@@ -1,29 +1,39 @@
-const jwt = require("jsonwebtoken")
+// Middleware de autenticación JWT
+// 1. Lee el token del header Authorization
+// 2. Verifica el token
+// 3. Adjunta el payload decodificado a req.user
 
-// Middleware que verifica el token
-module.exports = (req, res, next) => {
+import jwt from 'jsonwebtoken';
+
+export default function authMiddleware(req, res, next) {
   try {
-    // Leemos el header Authorization
-    const authHeader = req.headers.authorization
+    // Obtenemos el header Authorization
+    const authHeader = req.headers.authorization;
 
-    // Si no viene el header
+    // Si no hay header, no hay token
     if (!authHeader) {
-      return res.status(401).json({ error: "No token provided" })
+      return res.status(401).json({ message: 'No token provided' });
     }
 
-    // El formato es: "Bearer TOKEN"
-    const token = authHeader.split(" ")[1]
+    // El formato esperado es: Bearer TOKEN
+    const token = authHeader.split(' ')[1];
 
-    // Verificamos el token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    if (!token) {
+      return res.status(401).json({ message: 'Invalid token format' });
+    }
 
-    // Guardamos el usuario en la request
-    req.user = decoded
+    // ✅ AQUÍ ESTABA EL ERROR: esta línea faltaba
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Continuamos a la ruta protegida
-    next()
+    // 🔍 DEBUG (puedes borrarlo luego)
+    console.log("JWT DECODED EN authMiddleware 👉", decoded);
 
+    // Guardamos el usuario decodificado en la request
+    req.user = decoded;
+
+    // Continuamos con la request
+    next();
   } catch (error) {
-    return res.status(401).json({ error: "Invalid or expired token" })
+    return res.status(401).json({ message: 'Invalid or expired token' });
   }
 }

@@ -1,9 +1,20 @@
-const express = require("express")
-const router = express.Router()
+// Log para confirmar que el archivo se carga correctamente
+console.log("✅ webhooks.routes.js cargado");
 
-const webhooksController = require("../controllers/webhooks.controller")
+// Importamos Express
+import express from 'express';
 
-// Stripe webhook
-router.post("/stripe", webhooksController.stripeWebhook)
+// Importamos el controller (EXPORT NOMBRADO)
+import { stripeWebhook } from '../controllers/webhooks.controller.js';
 
-module.exports = router
+// Creamos el router
+const router = express.Router();
+
+/**
+ * Stripe llamará a esta ruta
+ * POST /webhooks/stripe
+ */
+router.post('/stripe', stripeWebhook);
+
+// Exportamos el router
+export default router;

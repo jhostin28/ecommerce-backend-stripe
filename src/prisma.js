@@ -1,5 +1,8 @@
-const { PrismaClient } = require("@prisma/client")
+// Importamos Prisma Client usando ES Modules
+import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient()
+// Creamos una única instancia de Prisma
+const prisma = new PrismaClient();
 
-module.exports = prisma
+// Exportamos la instancia para usarla en controllers
+export default prisma;

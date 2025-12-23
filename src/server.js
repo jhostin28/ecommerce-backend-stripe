@@ -1,30 +1,68 @@
-const express = require("express")
-const bodyParser = require("body-parser")
+// ==============================
+// IMPORTS
+// ==============================
 
-const app = express()
+// Importamos Express usando ES Modules
+import express from 'express';
 
-// 🔴 Stripe necesita el body RAW para validar la firma
+// Importamos dotenv para variables de entorno
+import dotenv from 'dotenv';
+
+// Importamos las rutas del sistema
+import userRoutes from './routes/users.routes.js';
+import productRoutes from './routes/products.routes.js';
+import orderRoutes from './routes/orders.routes.js';
+import paymentRoutes from './routes/payments.routes.js';
+import webhookRoutes from './routes/webhooks.routes.js';
+import adminRoutes from './routes/admin.routes.js';
+
+// Cargamos variables de entorno
+dotenv.config();
+
+// ==============================
+// APP CONFIG
+// ==============================
+
+// Creamos la app de Express
+const app = express();
+
+/**
+ * 🔴 STRIPE WEBHOOK RAW BODY
+ * IMPORTANTE:
+ * - Stripe necesita el body SIN parsear
+ * - DEBE ir ANTES de express.json()
+ * - SOLO se aplica a /webhooks/stripe
+ */
 app.use(
-  "/webhooks/stripe",
-  bodyParser.raw({ type: "application/json" })
-)
+  '/webhooks/stripe',
+  express.raw({ type: 'application/json' })
+);
 
-// 🟢 JSON normal para el resto de la app
-app.use(express.json())
+// Middleware para leer JSON (REST normal)
+app.use(express.json());
 
-// Ruta raíz
-app.get("/", (req, res) => {
-  res.send("🚀 API E-commerce funcionando")
-})
+// ==============================
+// ROUTES
+// ==============================
 
-// Rutas
-app.use("/products", require("./routes/products.routes"))
-app.use("/users", require("./routes/users.routes"))
-app.use("/orders", require("./routes/orders.routes"))
-app.use("/payments", require("./routes/payments.routes"))
-app.use("/webhooks", require("./routes/webhooks.routes"))
+// Rutas públicas / protegidas
+app.use('/users', userRoutes);
+app.use('/products', productRoutes);
+app.use('/orders', orderRoutes);
+app.use('/payments', paymentRoutes);
+app.use('/webhooks', webhookRoutes);
 
-// Puerto
-app.listen(3000, () => {
-  console.log("🔥 Server running on http://localhost:3000")
-})
+// Rutas ADMIN
+app.use('/admin', adminRoutes);
+
+// ==============================
+// SERVER START
+// ==============================
+
+// Puerto del servidor
+const PORT = process.env.PORT || 3000;
+
+// Levantamos el servidor
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
