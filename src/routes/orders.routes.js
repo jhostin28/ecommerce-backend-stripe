@@ -1,23 +1,55 @@
-// Log para confirmar que el archivo se carga
+// ==============================
+// DEBUG: confirmar que el archivo carga
+// ==============================
 console.log("✅ orders.routes.js cargado");
 
-// Importamos Express usando ES Modules
+// ==============================
+// IMPORTS
+// ==============================
+
+// Express
 import express from 'express';
 
-// Importamos el controller de orders (ES Modules)
+// Controller de órdenes
 import ordersController from '../controllers/orders.controller.js';
 
-// Importamos el middleware JWT (ES Modules)
+// Middleware JWT
 import authMiddleware from '../middlewares/auth.middleware.js';
 
-// Creamos el router de Express
+// ==============================
+// ROUTER
+// ==============================
+
 const router = express.Router();
 
-// POST /orders → crear orden (usuario autenticado)
-router.post('/', authMiddleware, ordersController.createOrder);
+/**
+ * ==============================
+ * POST /orders
+ * ==============================
+ * - Crea una orden nueva
+ * - Requiere usuario autenticado
+ * - Devuelve la orden creada (CON ID)
+ */
+router.post(
+  '/',
+  authMiddleware,
+  ordersController.createOrder
+);
 
-// GET /orders → ver órdenes del usuario logueado
-router.get('/', authMiddleware, ordersController.getMyOrders);
+/**
+ * ==============================
+ * GET /orders
+ * ==============================
+ * - Devuelve las órdenes del usuario logueado
+ */
+router.get(
+  '/',
+  authMiddleware,
+  ordersController.getMyOrders
+);
 
-// Exportamos el router como default (CLAVE)
+// ==============================
+// EXPORT
+// ==============================
+
 export default router;

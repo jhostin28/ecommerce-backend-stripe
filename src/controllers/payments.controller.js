@@ -17,97 +17,77 @@ import prisma from '../prisma.js';
 
 async function createPaymentIntent(req, res) {
   try {
-    // El usuario autenticado viene del JWT
     const userId = req.user.userId;
+    const { orderId } = req.params;
 
-    // Recibimos el orderId desde el body
-    const { orderId } = req.body;
+    console.log("🧪 ORDER ID RECIBIDO 👉", orderId);
 
-    // Validación básica
     if (!orderId) {
-      return res.status(400).json({ error: 'orderId is required' });
+      return res.status(400).json({ error: "orderId is required" });
     }
 
-    // Buscamos la orden
+    // 1️ Buscar la orden
     const order = await prisma.order.findUnique({
       where: { id: Number(orderId) },
     });
 
-    // Validamos que la orden exista y sea del usuario
     if (!order || order.userId !== userId) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: "Order not found" });
     }
 
-    // Solo se puede pagar una orden pendiente
-    if (order.status !== 'PENDING') {
-      return res.status(400).json({
-        error: 'Order is not payable',
-      });
+    if (order.status !== "PENDING") {
+      return res.status(400).json({ error: "Order is not payable" });
     }
 
-    // ==============================
-    // 🔒 PROTECCIÓN CONTRA PAGOS DUPLICADOS
-    // ==============================
-
-    // Buscamos si ya existe un pago para esta orden
+    // 2️ BUSCAR SI YA EXISTE UN PAYMENT
     const existingPayment = await prisma.payment.findFirst({
       where: {
         orderId: order.id,
-        status: {
-          in: ['PENDING', 'SUCCESS'],
-        },
       },
     });
 
-    // Si ya existe, reutilizamos el PaymentIntent
+    //  SI EXISTE → reutilizamos el PaymentIntent
     if (existingPayment) {
-      console.log('🟡 PaymentIntent reutilizado');
+      console.log("🟡 Payment existente, reutilizando Stripe Intent");
 
-      const existingIntent = await stripe.paymentIntents.retrieve(
+      const intent = await stripe.paymentIntents.retrieve(
         existingPayment.stripePaymentIntentId
       );
 
       return res.json({
-        clientSecret: existingIntent.client_secret,
+        clientSecret: intent.client_secret,
       });
     }
 
-    // ==============================
-    // 🆕 CREAR NUEVO PAYMENT INTENT
-    // ==============================
-
+    // 3️ CREAR NUEVO PAYMENT INTENT
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(Number(order.totalAmount) * 100), // Stripe usa centavos
-      currency: 'usd',
-
-      // SOLO tarjeta
-      payment_method_types: ['card'],
-
+      amount: Math.round(Number(order.totalAmount) * 100),
+      currency: "usd",
+      payment_method_types: ["card"],
       metadata: {
         orderId: order.id,
       },
     });
 
-    // Guardamos el pago en la base de datos
+    // 4️ GUARDAR EN DB
     await prisma.payment.create({
       data: {
         orderId: order.id,
-        status: 'PENDING',
+        status: "PENDING",
         amount: order.totalAmount,
         stripePaymentIntentId: paymentIntent.id,
       },
     });
 
-    // Devolvemos el clientSecret
     return res.json({
       clientSecret: paymentIntent.client_secret,
     });
-
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("❌ PAYMENT ERROR 👉", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
+
 
 // ==============================
 // EXPORT

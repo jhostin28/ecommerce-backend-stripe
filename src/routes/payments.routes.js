@@ -13,13 +13,17 @@ import authMiddleware from '../middlewares/auth.middleware.js';
 // Creamos el router de Express
 const router = express.Router();
 
-// POST /payments/create-intent
-// Crea un PaymentIntent en Stripe (usuario autenticado)
+/**
+ * POST /payments/:orderId
+ * Crea (o reutiliza) un PaymentIntent en Stripe
+ * 🔑 orderId VIENE EN LA URL
+ */
 router.post(
-  '/create-intent',
+  '/create-intent/:orderId',
   authMiddleware,
   paymentsController.createPaymentIntent
 );
+
 
 // Exportamos el router como default (CLAVE para ES Modules)
 export default router;
