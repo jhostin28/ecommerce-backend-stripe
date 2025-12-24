@@ -1,63 +1,89 @@
-import Stripe from "stripe";
-import prisma from "../prisma.js";
+// Importamos Stripe usando ES Modules
+import Stripe from 'stripe';
 
+// Inicializamos Stripe con la clave secreta
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-async function handleStripeWebhook(req, res) {
-  const sig = req.headers["stripe-signature"];
+// Importamos Prisma
+import prisma from '../prisma.js';
+
+/**
+ * Webhook de Stripe
+ * Stripe llamará a esta función cuando ocurra un evento de pago
+ */
+export async function stripeWebhook(req, res) {
+  // Stripe envía la firma en este header
+  const signature = req.headers['stripe-signature'];
 
   let event;
 
   try {
-    // 1️⃣ Verificamos que Stripe sea quien llama
+    /**
+     * 🔐 Verificamos que el evento:
+     * - viene realmente de Stripe
+     * - no fue modificado
+     *
+     * IMPORTANTE:
+     * - req.body debe ser RAW (por eso express.raw en server.js)
+     */
     event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
+      req.body, // RAW BODY
+      signature,
       process.env.STRIPE_WEBHOOK_SECRET
     );
-  } catch (err) {
-    console.error("❌ Webhook signature invalid:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  } catch (error) {
+    console.error('❌ Webhook signature verification failed:', error.message);
+    return res.status(400).send('Webhook Error');
   }
 
-  // 2️⃣ Procesamos SOLO los eventos que nos importan
-  if (event.type === "payment_intent.succeeded") {
+  // ==============================
+  // 🔥 LOGS CRÍTICOS (DEBUG)
+  // ==============================
+  console.log('🔥 STRIPE EVENT TYPE:', event.type);
+  console.log('🔥 STRIPE EVENT ID:', event.id);
+
+  // ==============================
+  // EVENTO: PAGO CONFIRMADO
+  // ==============================
+  if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object;
 
-    const orderId = Number(paymentIntent.metadata.orderId);
+    // 🔥 ID DEL PAYMENT INTENT QUE ENVÍA STRIPE
+    console.log('🔥 PAYMENT INTENT ID FROM STRIPE:', paymentIntent.id);
 
-    console.log("✅ PaymentIntent confirmado por Stripe");
-    console.log("👉 Order ID:", orderId);
+    // Buscamos el pago asociado en la base de datos
+    const payment = await prisma.payment.findFirst({
+      where: {
+        stripePaymentIntentId: paymentIntent.id,
+      },
+    });
 
-    try {
-      // 3️⃣ Actualizamos el pago
+    // 🔥 RESULTADO DE LA BÚSQUEDA EN BD
+    console.log('🔥 PAYMENT FOUND IN DB:', payment);
+
+    // Solo si el pago existe (idempotencia)
+    if (payment) {
+      // Actualizamos el pago a SUCCESS
       await prisma.payment.update({
-        where: {
-          stripePaymentIntentId: paymentIntent.id,
-        },
-        data: {
-          status: "SUCCESS",
-        },
+        where: { id: payment.id },
+        data: { status: 'SUCCESS' },
       });
 
-      // 4️⃣ Actualizamos la orden
+      // Actualizamos la orden a PAID
       await prisma.order.update({
-        where: { id: orderId },
-        data: {
-          status: "PAID",
-        },
+        where: { id: payment.orderId },
+        data: { status: 'PAID' },
       });
 
-      console.log("🎉 Orden marcada como PAID");
-    } catch (error) {
-      console.error("❌ Error actualizando DB:", error);
+      console.log('✅ PAYMENT & ORDER UPDATED SUCCESSFULLY');
+    } else {
+      console.log('❌ PAYMENT NOT FOUND FOR THIS PAYMENT INTENT');
     }
   }
 
-  // 5️⃣ Stripe espera SIEMPRE 200
+  /**
+   * Stripe EXIGE una respuesta 200
+   * Si no respondes, reintentará el webhook
+   */
   res.json({ received: true });
 }
-
-export default {
-  handleStripeWebhook,
-};
