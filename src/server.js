@@ -1,68 +1,116 @@
 // ==============================
+// DEBUG: confirmar qué server está corriendo
+// ==============================
+
+console.log("🔥 SERVER RUNNING FROM:", import.meta.url);
+
+// ==============================
 // IMPORTS
 // ==============================
 
-// Importamos Express usando ES Modules
-import express from 'express';
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
 
-// Importamos dotenv para variables de entorno
-import dotenv from 'dotenv';
+// ==============================
+// ROUTES IMPORT
+// ==============================
 
-// Importamos las rutas del sistema
-import userRoutes from './routes/users.routes.js';
-import productRoutes from './routes/products.routes.js';
-import orderRoutes from './routes/orders.routes.js';
-import paymentRoutes from './routes/payments.routes.js';
-import webhookRoutes from './routes/webhooks.routes.js';
-import adminRoutes from './routes/admin.routes.js';
+// Rutas públicas / usuario
+import userRoutes from "./routes/users.routes.js";
+import productRoutes from "./routes/products.routes.js";
+import orderRoutes from "./routes/orders.routes.js";
+import orderQueryRoutes from "./routes/orderQuery.routes.js";
+import paymentRoutes from "./routes/payments.routes.js";
+import webhookRoutes from "./routes/webhooks.routes.js";
 
-// Cargamos variables de entorno
+// Rutas ADMIN
+import adminRoutes from "./routes/admin.routes.js";
+
+// ==============================
+// CONFIG
+// ==============================
+
 dotenv.config();
 
-// ==============================
-// APP CONFIG
-// ==============================
-
-// Creamos la app de Express
 const app = express();
 
+// ==============================
+// GLOBAL MIDDLEWARES
+// ==============================
+
 /**
- * 🔴 STRIPE WEBHOOK RAW BODY
- * IMPORTANTE:
- * - Stripe necesita el body SIN parsear
- * - DEBE ir ANTES de express.json()
- * - SOLO se aplica a /webhooks/stripe
+ * ✅ CORS
+ * Permitimos el frontend de Vite
  */
 app.use(
-  '/webhooks/stripe',
-  express.raw({ type: 'application/json' })
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
 );
 
-// Middleware para leer JSON (REST normal)
+/**
+ * 🔴 STRIPE WEBHOOK
+ * DEBE ir antes de express.json()
+ */
+app.use(
+  "/webhooks/stripe",
+  express.raw({ type: "application/json" })
+);
+
+/**
+ * JSON parser para el resto de rutas
+ */
 app.use(express.json());
 
 // ==============================
-// ROUTES
+// ROUTES (ORDEN CRÍTICO)
 // ==============================
 
-// Rutas públicas / protegidas
-app.use('/users', userRoutes);
-app.use('/products', productRoutes);
-app.use('/orders', orderRoutes);
-app.use('/payments', paymentRoutes);
-app.use('/webhooks', webhookRoutes);
+/**
+ * 🟢 Rutas de autenticación y usuario
+ */
+app.use("/users", userRoutes);
 
-// Rutas ADMIN
-app.use('/admin', adminRoutes);
+/**
+ * 🟢 Productos
+ */
+app.use("/products", productRoutes);
+
+/**
+ * 🟢 Órdenes del USUARIO (checkout, crear orden, etc.)
+ */
+app.use("/orders", orderRoutes);
+
+/**
+ * 🟢 Consultas específicas de órdenes (NO ADMIN)
+ * ⚠️ IMPORTANTE:
+ * NO usar el mismo prefijo "/orders" para evitar colisiones
+ */
+app.use("/orders-query", orderQueryRoutes);
+
+/**
+ * 🟢 Pagos
+ */
+app.use("/payments", paymentRoutes);
+
+/**
+ * 🟢 Webhooks
+ */
+app.use("/webhooks", webhookRoutes);
+
+/**
+ * 🔵 ADMIN (SIEMPRE separado)
+ */
+app.use("/admin", adminRoutes);
 
 // ==============================
 // SERVER START
 // ==============================
 
-// Puerto del servidor
 const PORT = process.env.PORT || 3000;
 
-// Levantamos el servidor
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });

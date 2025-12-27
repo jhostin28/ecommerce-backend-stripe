@@ -1,26 +1,54 @@
+console.log("🔥🔥🔥 ADMIN ROUTES FILE LOADED");
 
-// Importamos Express
+
+// ==============================
+// IMPORTS
+// ==============================
+
 import express from 'express';
 
-// Middleware que valida el JWT (default export)
+// Middlewares
 import authMiddleware from '../middlewares/auth.middleware.js';
-
-// Middleware que valida que el usuario sea ADMIN (default export)
 import requireAdmin from '../middlewares/requireAdmin.js';
-console.log("🔥 ADMIN ROUTES CARGADO");
-console.log("🔥 authMiddleware importado:", authMiddleware.toString());
 
-// Controller de admin
-import { getAllOrders } from '../controllers/admin.controller.js';
+// Controllers
+import {
+  getAllOrders,
+  getOrderByIdAdmin,
+  updateOrderStatusAdmin,
+} from '../controllers/admin.controller.js';
 
-// Creamos el router de Express
+// ==============================
+// ROUTER
+// ==============================
+
 const router = express.Router();
 
-// Ruta: GET /admin/orders
-// 1. authMiddleware -> valida token
-// 2. requireAdmin  -> valida rol ADMIN
-// 3. getAllOrders  -> lógica del endpoint
+/**
+ * GET /admin/orders
+ * Listado de órdenes (ADMIN)
+ */
 router.get('/orders', authMiddleware, requireAdmin, getAllOrders);
 
-// Exportamos el router
+/**
+ * GET /admin/orders/:id
+ * Detalle de orden (ADMIN)
+ */
+router.get('/orders/:id', authMiddleware, requireAdmin, getOrderByIdAdmin);
+
+/**
+ * PATCH /admin/orders/:id/status
+ * Cambiar estado de orden (ADMIN)
+ */
+router.patch(
+  '/orders/:id/status',
+  authMiddleware,
+  requireAdmin,
+  updateOrderStatusAdmin
+);
+
+// ==============================
+// EXPORT
+// ==============================
+
 export default router;
