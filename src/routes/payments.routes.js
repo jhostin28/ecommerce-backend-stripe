@@ -16,10 +16,11 @@ const router = express.Router();
 // POST /payments/create-intent
 // Crea un PaymentIntent en Stripe (usuario autenticado)
 router.post(
-  '/create-intent',
+  "/create-intent/:orderId",
   authMiddleware,
   paymentsController.createPaymentIntent
 );
+
 
 // Exportamos el router como default (CLAVE para ES Modules)
 export default router;

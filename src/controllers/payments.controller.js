@@ -2,117 +2,147 @@
 // IMPORTS
 // ==============================
 
-// Importamos Stripe usando ES Modules
-import Stripe from 'stripe';
+// SDK oficial de Stripe
+import Stripe from "stripe";
+
+// Cliente de Prisma para la BD
+import prisma from "../prisma.js";
 
 // Inicializamos Stripe con la clave secreta
+// (solo debe usarse en el backend)
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Importamos Prisma
-import prisma from '../prisma.js';
-
 // ==============================
-// CREATE PAYMENT INTENT
+// CREATE PAYMENT INTENT (USER)
 // ==============================
 
-async function createPaymentIntent(req, res) {
+/**
+ * Crea (o reutiliza) un PaymentIntent de Stripe
+ * asociado a una orden del usuario autenticado.
+ *
+ * Flujo:
+ * 1. Validar orderId
+ * 2. Validar que la orden exista y sea del usuario
+ * 3. Validar que esté en estado PENDING
+ * 4. IDEMPOTENCIA REAL (1 pago por orden)
+ * 5. Crear PaymentIntent en Stripe (solo si no existe)
+ * 6. Guardar Payment en BD
+ * 7. Retornar clientSecret al frontend
+ */
+export async function createPaymentIntent(req, res) {
   try {
-    // El usuario autenticado viene del JWT
     const userId = req.user.userId;
+    const orderId = Number(req.params.orderId);
 
-    // Recibimos el orderId desde el body
-    const { orderId } = req.body;
-
-    // Validación básica
+    // ==============================
+    // VALIDACIÓN BÁSICA
+    // ==============================
     if (!orderId) {
-      return res.status(400).json({ error: 'orderId is required' });
-    }
-
-    // Buscamos la orden
-    const order = await prisma.order.findUnique({
-      where: { id: Number(orderId) },
-    });
-
-    // Validamos que la orden exista y sea del usuario
-    if (!order || order.userId !== userId) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
-    // Solo se puede pagar una orden pendiente
-    if (order.status !== 'PENDING') {
       return res.status(400).json({
-        error: 'Order is not payable',
+        error: "orderId inválido o faltante",
       });
     }
 
     // ==============================
-    // 🔒 PROTECCIÓN CONTRA PAGOS DUPLICADOS
+    // BUSCAR ORDEN
     // ==============================
-
-    // Buscamos si ya existe un pago para esta orden
-    const existingPayment = await prisma.payment.findFirst({
-      where: {
-        orderId: order.id,
-        status: {
-          in: ['PENDING', 'SUCCESS'],
-        },
-      },
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
     });
 
-    // Si ya existe, reutilizamos el PaymentIntent
-    if (existingPayment) {
-      console.log('🟡 PaymentIntent reutilizado');
+    if (!order || order.userId !== userId) {
+      return res.status(404).json({
+        error: "Order not found",
+      });
+    }
 
-      const existingIntent = await stripe.paymentIntents.retrieve(
+    // Si la orden ya fue pagada → no se puede pagar otra vez
+    if (order.status === "PAID") {
+      return res.status(400).json({
+        error: "Order already paid",
+      });
+    }
+
+    // Solo órdenes PENDING pueden pagarse
+    if (order.status !== "PENDING") {
+      return res.status(400).json({
+        error: "Order is not payable",
+      });
+    }
+
+    // ==============================
+    // IDEMPOTENCIA REAL (1 PAYMENT POR ORDEN)
+    // ==============================
+    const existingPayment = await prisma.payment.findUnique({
+      where: { orderId },
+    });
+
+    // Si ya existe un pago → reutilizamos el PaymentIntent
+    if (existingPayment) {
+      const intent = await stripe.paymentIntents.retrieve(
         existingPayment.stripePaymentIntentId
       );
 
       return res.json({
-        clientSecret: existingIntent.client_secret,
+        clientSecret: intent.client_secret,
       });
     }
 
     // ==============================
-    // 🆕 CREAR NUEVO PAYMENT INTENT
+    // CREAR PAYMENT INTENT EN STRIPE
     // ==============================
-
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(Number(order.totalAmount) * 100), // Stripe usa centavos
-      currency: 'usd',
+      amount: Math.round(Number(order.totalAmount) * 100),
+      currency: "usd",
 
-      // SOLO tarjeta
-      payment_method_types: ['card'],
-
+      // Stripe.js maneja los métodos automáticamente
       metadata: {
-        orderId: order.id,
+        orderId,
+        userId,
       },
     });
 
-    // Guardamos el pago en la base de datos
+    // ==============================
+    // GUARDAR PAYMENT EN BD
+    // ==============================
     await prisma.payment.create({
       data: {
-        orderId: order.id,
-        status: 'PENDING',
+        orderId,
         amount: order.totalAmount,
+        status: "PENDING",
         stripePaymentIntentId: paymentIntent.id,
       },
     });
 
-    // Devolvemos el clientSecret
     return res.json({
       clientSecret: paymentIntent.client_secret,
     });
 
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ error: 'Internal server error' });
+    // ==============================
+    // MANEJO DE IDEMPOTENCIA (PRISMA)
+    // ==============================
+    // Si Stripe o React llaman dos veces, Prisma puede lanzar P2002
+    if (
+      error.code === "P2002" &&
+      error.meta?.target?.includes("orderId")
+    ) {
+      // No es un error del sistema, solo pago duplicado evitado
+      return res.status(200).json({
+        message: "Payment already exists for this order",
+      });
+    }
+
+    console.error("CREATE PAYMENT INTENT ERROR:", error);
+    return res.status(500).json({
+      error: "Internal server error",
+    });
   }
 }
 
 // ==============================
 // EXPORT
 // ==============================
-
 export default {
   createPaymentIntent,
 };

@@ -63,14 +63,15 @@ model OrderItem {
 
 
 model Payment {
-  id                      Int            @id @default(autoincrement())
-  orderId                 Int            @unique
-  order                   Order          @relation(fields: [orderId], references: [id])
-  status                  PaymentStatus
-  amount                  Decimal
-  stripePaymentIntentId   String
-  createdAt               DateTime       @default(now())
+  id                    Int            @id @default(autoincrement())
+  orderId               Int            @unique
+  order                 Order          @relation(fields: [orderId], references: [id])
+  status                PaymentStatus
+  amount                Decimal
+  stripePaymentIntentId String         @unique   // 🔒 CLAVE DE IDEMPOTENCIA
+  createdAt             DateTime       @default(now())
 }
+
 
 enum OrderStatus {
   PENDING
@@ -80,6 +81,6 @@ enum OrderStatus {
 
 enum PaymentStatus {
   PENDING
-  SUCCESS
+  SUCCEEDED
   FAILED
 }
